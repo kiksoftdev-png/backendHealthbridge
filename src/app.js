@@ -7,16 +7,21 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware de sécurité
-app.use(helmet());
+// Middleware de sécurité - Configuré pour permettre CORS depuis toutes les origines
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // Désactivé pour permettre CORS
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Permet les ressources cross-origin
+}));
 
 // Compression des réponses
 app.use(compression());
 
-// Configuration CORS
+// Configuration CORS - Autorise toutes les origines
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
+  origin: true, // Autorise toutes les origines
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Rate limiting (désactivé en développement)
