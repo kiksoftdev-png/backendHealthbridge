@@ -8,7 +8,8 @@ const {
   getPatientById,
   createPatient,
   updatePatient,
-  deletePatient
+  deletePatient,
+  getPatientsByDoctor
 } = require('../controllers/patientsController');
 
 // Validation rules
@@ -25,6 +26,7 @@ const patientValidation = [
 
 // Routes
 router.get('/', getAllPatients);
+router.get('/doctor/:doctorId', getPatientsByDoctor);
 router.get('/:id', getPatientById);
 router.post('/', protect, patientValidation, handleValidationErrors, createPatient);
 router.put('/:id', protect, patientValidation, handleValidationErrors, updatePatient);

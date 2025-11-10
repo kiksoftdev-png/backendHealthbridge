@@ -5,7 +5,16 @@ const ActivityLogger = require('../services/activityLogger');
 // Récupérer tous les patients avec leurs informations utilisateur
 const getAllPatients = async (req, res) => {
   try {
+    const { doctorId } = req.query;
+    
+    // Construire les conditions de recherche
+    const where = {};
+    if (doctorId) {
+      where.assignedDoctorId = doctorId;
+    }
+
     const patients = await Patient.findAll({
+      where,
       include: [{
         model: User,
         as: 'user',
@@ -305,10 +314,77 @@ const deletePatient = async (req, res) => {
   }
 };
 
+// Récupérer les patients d'un docteur spécifique
+const getPatientsByDoctor = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    if (!doctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID du docteur requis'
+      });
+    }
+
+    const patients = await Patient.findAll({
+      where: {
+        assignedDoctorId: doctorId
+      },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'name', 'email', 'phone', 'avatar', 'isActive']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Formater les données pour correspondre au format attendu par le frontend
+    const formattedPatients = patients.map(patient => ({
+      id: patient.id,
+      user: {
+        id: patient.user.id,
+        name: patient.user.name,
+        email: patient.user.email,
+        phone: patient.user.phone,
+        avatar: patient.user.avatar || null,
+        isActive: patient.user.isActive
+      },
+      age: patient.age,
+      gender: patient.gender,
+      bloodType: patient.bloodType,
+      emergencyContact: patient.emergencyContact,
+      emergencyPhone: patient.emergencyPhone,
+      medicalHistory: patient.medicalHistory,
+      allergies: patient.allergies,
+      currentMedications: patient.currentMedications,
+      insuranceNumber: patient.insuranceNumber,
+      assignedDoctorId: patient.assignedDoctorId,
+      status: 'Stable',
+      diagnosis: 'En cours d\'évaluation',
+      doctor: 'Dr. Non assigné',
+      lastVisit: new Date().toLocaleDateString('fr-FR')
+    }));
+
+    res.json({
+      success: true,
+      data: formattedPatients,
+      count: formattedPatients.length
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des patients du docteur:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la récupération des patients du docteur',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllPatients,
   getPatientById,
   createPatient,
   updatePatient,
-  deletePatient
+  deletePatient,
+  getPatientsByDoctor
 };
