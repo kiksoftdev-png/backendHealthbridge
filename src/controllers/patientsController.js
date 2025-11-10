@@ -148,6 +148,15 @@ const createPatient = async (req, res) => {
       insuranceNumber
     } = req.body;
 
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Un utilisateur avec cet email existe déjà'
+      });
+    }
+
     // Créer d'abord l'utilisateur
     const user = await User.create({
       name,
@@ -158,19 +167,17 @@ const createPatient = async (req, res) => {
       isActive: true
     });
 
-    // Trouver le docteur assigné basé sur l'utilisateur connecté (si médecin)
-    // Stocker le userId du docteur dans assignedDoctorId (pas le doctorId)
+    // Stocker le userId de l'utilisateur connecté dans assignedDoctorId (docteur_assigne_id)
+    // Si l'utilisateur connecté est un docteur, son userId sera sauvegardé
     let assignedDoctorId = null;
     try {
-      if (req.user?.id) {
-        // Si l'utilisateur connecté est un docteur, stocker son userId dans assignedDoctorId
-        const doctor = await Doctor.findOne({ where: { userId: req.user.id } });
-        if (doctor) {
-          // Stocker le userId du docteur (pas le doctorId)
-          assignedDoctorId = req.user.id;
-        }
+      if (req.user?.id && req.user?.role?.toLowerCase() === 'doctor') {
+        // Stocker directement le userId du docteur connecté dans assignedDoctorId
+        assignedDoctorId = req.user.id;
+        console.log(`✅ Sauvegarde assignedDoctorId = ${assignedDoctorId} (userId du docteur connecté)`);
       }
     } catch (e) {
+      console.error('Erreur lors de la récupération du userId du docteur:', e);
       assignedDoctorId = null;
     }
 
@@ -217,6 +224,16 @@ const createPatient = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la création du patient:', error);
+    
+    // Gérer spécifiquement l'erreur de doublon d'email
+    if (error.name === 'SequelizeUniqueConstraintError' || error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        success: false,
+        message: 'Un utilisateur avec cet email existe déjà',
+        error: 'Email déjà utilisé'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Erreur serveur lors de la création du patient',
@@ -320,6 +337,7 @@ const deletePatient = async (req, res) => {
 };
 
 // Récupérer les patients assignés à un docteur spécifique (via assignedDoctorId = userId du docteur)
+// Le paramètre doctorId dans l'URL est en fait le userId du docteur
 const getPatientsByDoctor = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -331,16 +349,9 @@ const getPatientsByDoctor = async (req, res) => {
       });
     }
 
-    // Vérifier que le docteur existe et récupérer son userId
-    const doctor = await Doctor.findByPk(doctorId);
-    if (!doctor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Docteur non trouvé'
-      });
-    }
-
-    const doctorUserId = doctor.userId;
+    // Le paramètre doctorId est en fait le userId du docteur connecté
+    // Filtrer directement par assignedDoctorId = userId
+    const doctorUserId = parseInt(doctorId, 10);
 
     // Récupérer les patients où assignedDoctorId correspond au userId du docteur
     const patients = await Patient.findAll({
