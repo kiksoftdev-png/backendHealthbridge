@@ -314,7 +314,7 @@ const deletePatient = async (req, res) => {
   }
 };
 
-// Récupérer les patients d'un docteur spécifique
+// Récupérer les patients assignés à un docteur spécifique (via assignedDoctorId)
 const getPatientsByDoctor = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -326,6 +326,16 @@ const getPatientsByDoctor = async (req, res) => {
       });
     }
 
+    // Vérifier que le docteur existe
+    const doctor = await Doctor.findByPk(doctorId);
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Docteur non trouvé'
+      });
+    }
+
+    // Récupérer les patients assignés à ce docteur via assignedDoctorId (docteur_assigne_id)
     const patients = await Patient.findAll({
       where: {
         assignedDoctorId: doctorId
