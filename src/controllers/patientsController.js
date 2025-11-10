@@ -159,11 +159,16 @@ const createPatient = async (req, res) => {
     });
 
     // Trouver le docteur assigné basé sur l'utilisateur connecté (si médecin)
+    // Stocker le userId du docteur dans assignedDoctorId (pas le doctorId)
     let assignedDoctorId = null;
     try {
       if (req.user?.id) {
+        // Si l'utilisateur connecté est un docteur, stocker son userId dans assignedDoctorId
         const doctor = await Doctor.findOne({ where: { userId: req.user.id } });
-        assignedDoctorId = doctor?.id || null;
+        if (doctor) {
+          // Stocker le userId du docteur (pas le doctorId)
+          assignedDoctorId = req.user.id;
+        }
       }
     } catch (e) {
       assignedDoctorId = null;
@@ -314,7 +319,7 @@ const deletePatient = async (req, res) => {
   }
 };
 
-// Récupérer les patients assignés à un docteur spécifique (via assignedDoctorId)
+// Récupérer les patients assignés à un docteur spécifique (via assignedDoctorId = userId du docteur)
 const getPatientsByDoctor = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -326,7 +331,7 @@ const getPatientsByDoctor = async (req, res) => {
       });
     }
 
-    // Vérifier que le docteur existe
+    // Vérifier que le docteur existe et récupérer son userId
     const doctor = await Doctor.findByPk(doctorId);
     if (!doctor) {
       return res.status(404).json({
@@ -335,10 +340,12 @@ const getPatientsByDoctor = async (req, res) => {
       });
     }
 
-    // Récupérer les patients assignés à ce docteur via assignedDoctorId (docteur_assigne_id)
+    const doctorUserId = doctor.userId;
+
+    // Récupérer les patients où assignedDoctorId correspond au userId du docteur
     const patients = await Patient.findAll({
       where: {
-        assignedDoctorId: doctorId
+        assignedDoctorId: doctorUserId
       },
       include: [{
         model: User,
